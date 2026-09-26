@@ -72,7 +72,7 @@ npm start
 ```
 
 Fill the Supabase values and a private `SESSION_SECRET` in `.env`, save it, and
-open `http://127.0.0.1:4173`. The first registration creates a new account;
+open the local URL shown by the server in your terminal. The first registration creates a new account;
 there are no seeded accounts or old JSON data. Passwords are stored as scrypt
 hashes, sessions are random opaque tokens stored as keyed hashes, and the
 HttpOnly/SameSite cookie expires after seven days.
