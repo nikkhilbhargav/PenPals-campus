@@ -1,0 +1,18 @@
+project_id = "penpals-campus"
+
+[storage.buckets.item-images]
+public = false
+file_size_limit = "1536KB"
+allowed_mime_types = ["image/jpeg", "image/png", "image/webp"]
+
+[storage.buckets.study-materials]
+public = false
+file_size_limit = "4MB"
+allowed_mime_types = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+]
