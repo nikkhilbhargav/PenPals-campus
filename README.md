@@ -1,68 +1,35 @@
-# PenPals Campus — Supabase + Netlify
+# PenPals Campus — Supabase + Railway
 
-The existing UI is served as static files from `public/`. Its existing Express
-API runs locally with Node or as one Netlify Function. The backend keeps the
-nickname/password experience and session cookies, and uses Supabase Postgres
-and private Storage buckets. The browser never connects to Supabase directly.
+PenPals Campus keeps its current student-facing interface and nickname/password
+sign-in. Express serves the site and API from one Node.js service. Supabase
+provides Postgres and private Storage; the browser never connects to Supabase
+directly.
 
-## 1. Create a Supabase project
+## Supabase setup
 
-Create a project at [Supabase](https://supabase.com/dashboard). Wait for the
-database to finish provisioning.
+1. Create a project at [Supabase](https://supabase.com/dashboard) and wait for
+   its database to finish provisioning.
+2. In **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql). This
+   creates the app tables, indexes, database-backed rate limits, and deny-all
+   RLS policies for direct browser access.
+3. In **Storage**, create these two buckets as private:
 
-## 2. Create the database tables and RLS policies
+   | Bucket | Maximum size | Allowed content |
+   | --- | ---: | --- |
+   | `item-images` | 1.5 MB | JPEG, PNG, WebP |
+   | `study-materials` | 4 MB | PDF, DOC, DOCX, JPEG, PNG, WebP |
 
-Open **SQL Editor** in the Supabase Dashboard, paste `supabase/schema.sql`, and
-run it once. This creates users, sessions, items, requests, study materials,
-notifications, and the database-backed rate-limit table/function.
+   The Storage RLS policy is included at the bottom of `supabase/schema.sql`.
+   [`supabase/config.toml`](supabase/config.toml) records local Supabase CLI
+   bucket settings; for a hosted project, create buckets through the Dashboard.
+4. In **Project Settings → API Keys**, get the project URL and create a
+   server-side Secret key. Do not put that key in browser files or source
+   control. A secret key bypasses RLS, so the backend checks ownership for each
+   protected operation. See [Supabase API key guidance](https://supabase.com/docs/guides/getting-started/api-keys).
 
-The custom nickname session is separate from Supabase Auth. The SQL therefore
-revokes table access from the browser roles `anon` and `authenticated` and
-adds restrictive deny policies. Only the backend's secret/service-role key can
-reach these tables; the API checks the session and row ownership before every
-operation. Supabase secret/service-role keys bypass RLS, so never place one in
-`public/` or any frontend build variable. See [Supabase RLS guidance](https://supabase.com/docs/guides/database/postgres/row-level-security)
-and [API key guidance](https://supabase.com/docs/guides/getting-started/api-keys).
+## Run locally
 
-## 3. Create private Storage buckets
-
-In **Storage → New bucket**, create both buckets as **Private**:
-
-| Bucket | Maximum size | Allowed MIME types |
-| --- | ---: | --- |
-| `item-images` | 1.5 MB | `image/jpeg`, `image/png`, `image/webp` |
-| `study-materials` | 4 MB | PDF, DOC, DOCX, JPEG, PNG, WebP |
-
-Apply the Storage RLS policy at the bottom of `supabase/schema.sql`. It denies
-direct browser-role operations on these buckets. The server uses its
-server-only key and authorizes all downloads and deletions itself. Item images
-are served through the API for available/requested listings; study files
-require a signed-in campus account. Supabase explains the private bucket model
-in its [Storage access-control guide](https://supabase.com/docs/guides/storage/security/access-control).
-
-`supabase/config.toml` records the same private bucket limits for a local
-Supabase CLI environment. For a hosted project, create the buckets in the
-Dashboard as above; the schema SQL intentionally does not edit Supabase's
-managed `storage` schema.
-
-## 4. Copy project credentials
-
-In **Project Settings → API Keys**, copy the Project URL and keys. Set:
-
-- `SUPABASE_URL`: Project URL.
-- `SUPABASE_ANON_KEY`: publishable/anon key. The app does not send it to the
-  browser; it is kept in the environment for standard project configuration.
-- `SUPABASE_SECRET_KEY`: recommended current server-side Secret key. The app
-  also accepts the legacy `SUPABASE_SERVICE_ROLE_KEY` variable.
-- `SESSION_SECRET`: at least 32 random characters.
-
-Never commit `.env` or expose `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY`.
-Supabase recommends server-only secret keys; these bypass RLS by design.
-
-## 5. Run locally
-
-Requires Node.js 20+ and a configured Supabase project with the SQL and buckets
-above applied. From this folder:
+Requires Node.js 20+ and the Supabase schema and buckets above.
 
 ```powershell
 npm install
@@ -71,54 +38,63 @@ notepad .env
 npm start
 ```
 
-Fill the Supabase values and a private `SESSION_SECRET` in `.env`, save it, and
-open the local URL shown by the server in your terminal. The first registration creates a new account;
-there are no seeded accounts or old JSON data. Passwords are stored as scrypt
-hashes, sessions are random opaque tokens stored as keyed hashes, and the
-HttpOnly/SameSite cookie expires after seven days.
+Set `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and a separate random
+`SESSION_SECRET` of at least 32 characters in `.env`. Keep this file private.
+Open the local address printed by `npm start` (usually
+`http://127.0.0.1:4173`). Press **Ctrl+C** in PowerShell to stop the server.
 
-For local Netlify Functions and rewrite behavior, install the Netlify CLI and
-run `netlify dev` from this folder after setting the same environment values.
+The first registration creates an account; no sample users or old JSON data are
+included. Passwords use scrypt hashing. Sessions use random opaque tokens,
+stored as keyed hashes and sent in HttpOnly/SameSite cookies.
 
-## 6. Deploy to Netlify
+## Deploy on Railway
 
-Push this folder's contents to the root of a Git repository. In Netlify choose
-**Add new project → Import from Git** and connect the repository. Netlify reads
-`netlify.toml`: publish directory `public`, functions directory
-`netlify/functions`, build command `npm install --omit=dev`, Node 22, and the
-`/api/*` rewrite to the Express Function.
+This project runs as a regular Express server, so Railway can run it directly;
+no serverless adapter or separate frontend service is needed.
 
-In the Netlify site's environment-variable settings, add `SUPABASE_URL`,
-`SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`), and
-`SESSION_SECRET`. Scope the secret key to Functions/runtime only when the UI
-offers a scope choice. Redeploy after adding variables. **Do not put secrets in
-`netlify.toml`**; that file is committed. Netlify's official [Express guide](https://docs.netlify.com/build/frameworks/framework-setup-guides/express/)
-documents the function rewrite pattern used here.
+1. Push the project root to a GitHub repository. Confirm `.env` is not included
+   (`.gitignore` excludes it). A private repository is fine.
+2. In [Railway](https://railway.com/), create a project and choose **Deploy from
+   GitHub repo**. Select the repository containing `package.json` at its root.
+3. Railway detects Node.js and the `npm start` script. If it asks for commands,
+   use **Build:** `npm install` and **Start:** `npm start`.
+4. In the service's **Variables** settings, add these for the production
+   environment:
 
-Uploads stay within Netlify's buffered function request limit: item photos are
-limited to 1.5 MB and study files to 4 MB. Netlify documents a 6 MB buffered
-payload ceiling and about 4.5 MB for binary request data after Base64 overhead
-([function limits](https://docs.netlify.com/build/functions/configuration/)).
+   - `NODE_ENV` = `production`
+   - `SUPABASE_URL` = your Supabase project URL
+   - `SUPABASE_SECRET_KEY` = the new server-only Secret key
+   - `SESSION_SECRET` = a separate random value of at least 32 characters
 
-## Security notes
+   Leave `SUPABASE_SERVICE_ROLE_KEY` unset when using `SUPABASE_SECRET_KEY`.
+   Railway provides `PORT` automatically; do not hard-code a production port.
+   Never paste secrets into GitHub or chat. If a key has been exposed, rotate it
+   in Supabase and update this variable.
+5. In Railway service **Settings**, set the healthcheck path to `/health`, then
+   use **Networking → Generate Domain** to create the public URL. Railway waits
+   for the app's `/health` endpoint before routing traffic.
+
+For Railway's current Express deployment workflow, see its [Express guide](https://docs.railway.com/guides/express),
+[build and start command docs](https://docs.railway.com/builds/build-and-start-commands),
+and [healthcheck docs](https://docs.railway.com/deployments/healthchecks).
+
+## Security and behavior
 
 - API writes require an authenticated session and same-origin `Origin` header.
-- Item edits/deletes require item ownership. Request transitions check the
-  requester or item owner and valid status transitions. Material delete checks
-  uploader ownership.
-- File signatures and declared MIME types are checked; names and storage paths
-  are generated by the server. Arbitrary executable formats are rejected.
-- RLS is a deny-all browser boundary for this custom-session architecture;
-  backend authorization remains mandatory because the secret key bypasses RLS.
-- Rate limits are stored atomically in Supabase Postgres so they still apply
-  across stateless Netlify Function instances. Client IPs are HMAC-hashed.
-- Public profiles contain only the campus nickname, branch, and year. The app
+- Only listing owners can edit/delete their listings; request actions are scoped
+  to the requester or listing owner and checked against allowed transitions.
+- Only a study-material uploader can delete it. Private downloads require login.
+- Upload content signatures, MIME types, file sizes, and allowed formats are
+  checked. Server-generated filenames and storage paths are used.
+- RLS denies direct browser access. The backend uses a server-only Supabase key
+  and performs authorization because that key bypasses RLS.
+- Rate limits are stored atomically in Supabase Postgres; client IPs are
+  HMAC-hashed for the rate-limit key.
+- Public profiles expose only nickname, branch, year, and semester. The app
   does not collect email, phone, or home address.
 
-## Checks and deployment status
+## Checks
 
-Run `npm run check` for JavaScript syntax checks. End-to-end signup, uploads,
-authorization attacks, Storage access, and RLS checks require a configured
-Supabase project and Netlify environment variables; no credentials or project
-were available in this workspace, so those live checks have not been run.
-No site has been deployed or made publicly accessible.
+Run `npm run check` for JavaScript syntax checks. End-to-end authentication,
+uploads, ownership, Storage access, and RLS tests require a configured Supabase
+project and live deployment environment.

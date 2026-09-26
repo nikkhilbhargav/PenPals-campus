@@ -79,7 +79,7 @@ create table if not exists public.notifications (
 );
 create index if not exists notifications_user_idx on public.notifications(user_id,created_at desc);
 
--- Netlify Functions are stateless, so enforce rate limits atomically in Postgres.
+-- Multiple app instances need shared rate limits, enforced atomically in Postgres.
 create table if not exists public.api_rate_limits (
   bucket_key text primary key,
   window_started_at timestamptz not null,
