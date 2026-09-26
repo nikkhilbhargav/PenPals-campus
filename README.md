@@ -1,4 +1,4 @@
-# PenPals Campus — Supabase + Railway
+# PenPals Campus — Supabase + Vercel
 
 PenPals Campus keeps its current student-facing interface and nickname/password
 sign-in. Express serves the site and API from one Node.js service. Supabase
@@ -47,19 +47,21 @@ The first registration creates an account; no sample users or old JSON data are
 included. Passwords use scrypt hashing. Sessions use random opaque tokens,
 stored as keyed hashes and sent in HttpOnly/SameSite cookies.
 
-## Deploy on Railway
+## Deploy on Vercel
 
-This project runs as a regular Express server, so Railway can run it directly;
-no serverless adapter or separate frontend service is needed.
+Vercel detects the Express application in `server.js` and runs it as a Function.
+Files in `public/` are served as static assets. No separate frontend service or
+serverless adapter is needed.
 
-1. Push the project root to a GitHub repository. Confirm `.env` is not included
-   (`.gitignore` excludes it). A private repository is fine.
-2. In [Railway](https://railway.com/), create a project and choose **Deploy from
-   GitHub repo**. Select the repository containing `package.json` at its root.
-3. Railway detects Node.js and the `npm start` script. If it asks for commands,
-   use **Build:** `npm install` and **Start:** `npm start`.
-4. In the service's **Variables** settings, add these for the production
-   environment:
+1. Push the project root to GitHub. Confirm `.env` is not committed; `.gitignore`
+   excludes it.
+2. At [Vercel](https://vercel.com/), choose **Add New → Project**, import the
+   repository, and leave the Root Directory at the folder containing
+   `package.json`.
+3. Vercel detects Express automatically. Leave the build command and output
+   directory at their defaults; no custom build command is required.
+4. In **Project Settings → Environment Variables**, add these to **Production**
+   (and Preview too if you want preview deployments to connect to Supabase):
 
    - `NODE_ENV` = `production`
    - `SUPABASE_URL` = your Supabase project URL
@@ -67,16 +69,19 @@ no serverless adapter or separate frontend service is needed.
    - `SESSION_SECRET` = a separate random value of at least 32 characters
 
    Leave `SUPABASE_SERVICE_ROLE_KEY` unset when using `SUPABASE_SECRET_KEY`.
-   Railway provides `PORT` automatically; do not hard-code a production port.
-   Never paste secrets into GitHub or chat. If a key has been exposed, rotate it
-   in Supabase and update this variable.
-5. In Railway service **Settings**, set the healthcheck path to `/health`, then
-   use **Networking → Generate Domain** to create the public URL. Railway waits
-   for the app's `/health` endpoint before routing traffic.
+   Do not set `PORT`; Vercel manages the function runtime. Never commit or paste
+   secrets into GitHub or chat. Rotate any key that has been exposed.
+5. Select **Deploy**. After it succeeds, open the generated Vercel URL and test
+   sign-up, sign-in, listing operations, and file downloads.
 
-For Railway's current Express deployment workflow, see its [Express guide](https://docs.railway.com/guides/express),
-[build and start command docs](https://docs.railway.com/builds/build-and-start-commands),
-and [healthcheck docs](https://docs.railway.com/deployments/healthchecks).
+### Vercel limits and plan
+
+Vercel Functions limit request and response bodies to 4.5 MB. This app accepts
+study uploads up to 4 MB, so keep files below that application limit to leave
+room for multipart request overhead. The Hobby plan is limited to personal,
+non-commercial use; check Vercel's current [plan terms](https://vercel.com/pricing)
+for your intended public campus use. If your use is commercial or institutionally
+operated, choose a plan that permits it.
 
 ## Security and behavior
 
