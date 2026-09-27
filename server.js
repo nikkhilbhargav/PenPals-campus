@@ -87,4 +87,4 @@ app.use((_req,res)=>res.sendStatus(404));
 app.use((err,_req,res,_next)=>{console.error(err.message);let status=err.status||(err instanceof multer.MulterError?400:500);if(err.code==='23505')status=409;res.status(status).json({error:status===500?'Something went wrong. Please try again.':err.message})});
 
 if(require.main===module){ready().then(()=>{const server=app.listen(PORT,production?'0.0.0.0':'127.0.0.1',()=>console.log(`PenPals Campus listening on http://127.0.0.1:${PORT}`));for(const sig of ['SIGINT','SIGTERM'])process.on(sig,()=>server.close(()=>process.exit(0)))}).catch(e=>{console.error('Startup failed:',e.message);process.exit(1)})}
-module.exports={app,ready};
+module.exports=app;
